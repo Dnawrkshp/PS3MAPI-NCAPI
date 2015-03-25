@@ -198,6 +198,18 @@ namespace PS3MAPI_NCAPI
         }
 
         /// <summary>
+        /// Called by user.
+        /// Should display options for the API.
+        /// Can be used for other things.
+        /// </summary>
+        public void Configure()
+        {
+            //To-do
+            //Add form for all the extra functionality PS3MAPI offers
+            //Including Temperature, disabling syscalls, notifications, ect
+        }
+
+        /// <summary>
         /// Called on initialization
         /// </summary>
         public void Initialize()
