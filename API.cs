@@ -16,11 +16,11 @@ namespace PS3MAPI_NCAPI
 
         //Declarations of all our internal API variables
         string myName = "PS3 Manager API";
-        string myDescription = "NetCheat API for the PS3 Manager API (PS3).\nThis does not support range finding! All memory is assumed mapped.\n\nCEX and DEX supported!";
+        string myDescription = "NetCheat API for the PS3 Manager API (PS3).\n\nCEX and DEX supported!";
         string myAuthor = "NzV";
-        string myVersion = "1.0";
+        string myVersion = "1.2";
         string myPlatform = "PS3";
-        string myContactLink = "http://www.nextgenupdate.com/forums/ps3-cheats-customization/788117-ps3-manager-api.html";
+        string myContactLink = "http://www.psx-place.com/forum/utilities/ps3-manager-api-931.html";
         System.Drawing.Image myIcon =  Properties.Resources.ico;
 
         /// <summary>
@@ -99,7 +99,7 @@ namespace PS3MAPI_NCAPI
                 _ps3mapi = new PS3MAPI();
 
             bytes[0] = 1;
-            _ps3mapi.Process.Memory.Get(_ps3mapi.Process.Process_Pid, (uint)address, bytes);
+            _ps3mapi.Process.Memory.Get(_ps3mapi.Process.Process_Pid, address, bytes);
 
             return true;
         }
@@ -112,7 +112,7 @@ namespace PS3MAPI_NCAPI
             if (_ps3mapi == null)
                 _ps3mapi = new PS3MAPI();
 
-            _ps3mapi.Process.Memory.Set(_ps3mapi.Process.Process_Pid, (uint)address, bytes);
+            _ps3mapi.Process.Memory.Set(_ps3mapi.Process.Process_Pid, address, bytes);
         }
 
         /// <summary>
