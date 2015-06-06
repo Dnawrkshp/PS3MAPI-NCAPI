@@ -1,5 +1,5 @@
 ﻿/*PS3 MANAGER API
- * Copyright (c) 2014 _NzV_.
+ * Copyright (c) 2014-2015 _NzV_.
  *
  * This code is write by _NzV_ <donm7v@gmail.com>.
  * It may be used for any purpose as long as this notice remains intact on all
@@ -16,12 +16,13 @@ namespace PS3MAPI_NCAPI
     public class PS3MAPI
     {
 
-        public int PS3M_API_PC_LIB_VERSION = 0x0112; 
+        public int PS3M_API_PC_LIB_VERSION = 0x0120; 
 
         public CORE_CMD Core = new CORE_CMD();
         public SERVER_CMD Server = new SERVER_CMD();
         public PS3_CMD PS3 = new PS3_CMD();
         public PROCESS_CMD Process = new PROCESS_CMD();
+        public VSH_PLUGINS_CMD VSH_Plugin = new VSH_PLUGINS_CMD();
 
         public string IPAddr = "127.0.0.1";
 
@@ -433,7 +434,7 @@ namespace PS3MAPI_NCAPI
                     throw new Exception(ex.Message, ex);
                 }
             }
-            /// <summary>Remove COBRA/MAMBA Hook.</summary>
+            /// <summary>Check Partial Syscall8 disable</summary>
             public Syscall8Mode PartialCheckSyscall8()
             {
                 try
@@ -447,8 +448,9 @@ namespace PS3MAPI_NCAPI
                 {
                     throw new Exception(ex.Message, ex);
                 }
-            }
-        public void RemoveHook()
+            }       
+            /// <summary>Remove COBRA/MAMBA Hook.</summary>
+            public void RemoveHook()
             {
                 try
                 {
@@ -472,9 +474,9 @@ namespace PS3MAPI_NCAPI
                     throw new Exception(ex.Message, ex);
                 }
             }
-            /// <summary>Check Partial Syscall8 disable</summary>
-            }
 
+        }
+		
         public class PROCESS_CMD
         {
 
@@ -537,7 +539,7 @@ namespace PS3MAPI_NCAPI
             /// <param name="pid">Process Pid</param>
             /// <param name="Address">Address</param>
             /// <param name="Bytes">Bytes</param>
-            public void Set(uint Pid, uint Address, byte[] Bytes)
+            public void Set(uint Pid, ulong Address, byte[] Bytes)
             {
                 try
                 {
@@ -552,7 +554,7 @@ namespace PS3MAPI_NCAPI
             /// <param name="pid">Process Pid</param>
             /// <param name="Address">Address</param>
             /// <param name="Bytes">Bytes</param>
-            public void Get(uint Pid, uint Address, byte[] Bytes)
+            public void Get(uint Pid, ulong Address, byte[] Bytes)
             {
                 try
                 {
@@ -567,7 +569,7 @@ namespace PS3MAPI_NCAPI
             /// <param name="pid">Process Pid</param>
             /// <param name="Address">Address</param>
             /// <param name="Length">Length</param>
-            public byte[] Get(uint Pid, uint Address, uint Length)
+            public byte[] Get(uint Pid, ulong Address, uint Length)
             {
                 try
                 {
@@ -663,6 +665,49 @@ namespace PS3MAPI_NCAPI
                 }
             }
         }
+		public class VSH_PLUGINS_CMD
+		{
+            /// <summary>Load an vsh plugin.</summary>
+            /// <param name="slot">Slot id</param>
+            /// <param name="path">Path of the plugin to load.</param>
+            public void Load(uint slot, string path)
+            {
+                try
+                {
+                    PS3MAPI_Client_Server.VSHPlugins_Load(slot, path);
+                }
+                catch (Exception ex)
+                {
+                    throw new Exception(ex.Message, ex);
+                }
+            }
+            /// <summary>Unload an vsh plugin.</summary>
+            /// <param name="pid">Slot id</param>
+            public void Unload(uint slot)
+            {
+                try
+                {
+                    PS3MAPI_Client_Server.VSHPlugins_Unload(slot);
+                }
+                catch (Exception ex)
+                {
+                    throw new Exception(ex.Message, ex);
+                }
+            }
+            /// <summary>Unload an vsh plugin.</summary>
+            /// <param name="pid">Slot id</param>
+            public void GetInfoBySlot(uint slot, out string name, out string path)
+            {
+                try
+                {
+                    PS3MAPI_Client_Server.VSHPlugins_GetInfoBySlot(slot, out name, out path);
+                }
+                catch (Exception ex)
+                {
+                    throw new Exception(ex.Message, ex);
+                }
+            }
+        }
    
        }
 
@@ -680,7 +725,7 @@ namespace PS3MAPI_NCAPI
         {
             #region Private Members
 
-            static private int ps3m_api_server_minversion = 0x0111;
+            static private int ps3m_api_server_minversion = 0x0120;
             static private PS3MAPI_ResponseCode eResponseCode;
             static private string sResponse;
             static private string sMessages = "";
@@ -822,10 +867,15 @@ namespace PS3MAPI_NCAPI
                 {
                     Fail();
                 }
-                if (Server_GetMinVersion() != ps3m_api_server_minversion)
+                if (Server_GetMinVersion() < ps3m_api_server_minversion)
                 {
                     Disconnect();
-                    throw new Exception("PS3M_API_PC_LIB OUTDATED! PLEASE UPDATE.");
+                    throw new Exception("PS3M_API SERVER (webMAN-MOD) OUTDATED! PLEASE UPDATE.");
+                }
+                else if (Server_GetMinVersion() > ps3m_api_server_minversion)
+                {
+                    Disconnect();
+                    throw new Exception("PS3M_API PC_LIB (PS3ManagerAPI.dll) OUTDATED! PLEASE UPDATE.");
                 }
                 return;
             }
@@ -1265,12 +1315,94 @@ namespace PS3MAPI_NCAPI
                     throw new Exception("PS3MAPI not connected!");
                 }
             }
+			 internal static string PS3_GetIDPS()
+            {
+                if (IsConnected)
+                {
+                    SendCommand("PS3 GETIDPS");
+                    switch (eResponseCode)
+                    {
+                        case PS3MAPI_ResponseCode.RequestSuccessful:
+                        case PS3MAPI_ResponseCode.CommandOK:
+                            break;
+                        default:
+                            Fail();
+                            break;
+                    }
+                    return sResponse;
+                }
+                else
+                {
+                    throw new Exception("PS3MAPI not connected!");
+                }
+            }
+            internal static void PS3_SetIDPS(string IDPS)
+            {
+                if (IsConnected)
+                {
+                    SendCommand("PS3 SETIDPS " + IDPS.Substring(0, 16) + " " + IDPS.Substring(16, 16));
+                    switch (eResponseCode)
+                    {
+                        case PS3MAPI_ResponseCode.RequestSuccessful:
+                        case PS3MAPI_ResponseCode.CommandOK:
+                            break;
+                        default:
+                            Fail();
+                            break;
+                    }
+                }
+                else
+                {
+                    throw new Exception("PS3MAPI not connected!");
+                }
+            }
+            internal static string PS3_GetPSID()
+            {
+                if (IsConnected)
+                {
+                    SendCommand("PS3 GETPSID");
+                    switch (eResponseCode)
+                    {
+                        case PS3MAPI_ResponseCode.RequestSuccessful:
+                        case PS3MAPI_ResponseCode.CommandOK:
+                            break;
+                        default:
+                            Fail();
+                            break;
+                    }
+                    return sResponse;
+                }
+                else
+                {
+                    throw new Exception("PS3MAPI not connected!");
+                }
+            }
+            internal static void PS3_SetPSID(string PSID)
+            {
+                if (IsConnected)
+                {
+                    SendCommand("PS3 SETPSID " + PSID.Substring(0, 16) + " " + PSID.Substring(16, 16));
+                    switch (eResponseCode)
+                    {
+                        case PS3MAPI_ResponseCode.RequestSuccessful:
+                        case PS3MAPI_ResponseCode.CommandOK:
+                            break;
+                        default:
+                            Fail();
+                            break;
+                    }
+                }
+                else
+                {
+                    throw new Exception("PS3MAPI not connected!");
+                }
+            }
             //PROCESS--------------------------------------------------------------------------------
             internal static string Process_GetName(uint pid)
             { 
                 if (IsConnected)
                 {
-                    SendCommand("PROCESS GETNAME " + pid.ToString());
+                    SendCommand("PROCESS GETNAME " + string.Format("{0}", pid));
                     switch (eResponseCode)
                     {
                         case PS3MAPI_ResponseCode.RequestSuccessful:
@@ -1315,7 +1447,7 @@ namespace PS3MAPI_NCAPI
                 }
             }
             //MEMORY--------------------------------------------------------------------------------
-            internal static void Memory_Get(uint Pid, uint Address, byte[] Bytes)
+            internal static void Memory_Get(uint Pid, ulong Address, byte[] Bytes)
             {
                 if (IsConnected)
                 {
@@ -1325,7 +1457,7 @@ namespace PS3MAPI_NCAPI
                     long lBytesReceived = 0;
                     bool bComplete = false;
                     OpenDataSocket();
-                    SendCommand("MEMORY GET " + string.Format("{0}", Pid) + " " + string.Format("{0}", Address) + " " + string.Format("{0}", Bytes.Length));
+                    SendCommand("MEMORY GET " + string.Format("{0}", Pid) + " " + string.Format("{0:X16}", Address) + " " + string.Format("{0}", Bytes.Length));
                     switch (eResponseCode)
                     {
                         case PS3MAPI_ResponseCode.DataConnectionAlreadyOpen:
@@ -1335,15 +1467,17 @@ namespace PS3MAPI_NCAPI
                             throw new Exception(sResponse);
                     }
                     ConnectDataSocket();
+                    byte[] buffer = new byte[Bytes.Length];
                     while (bComplete != true)
                     {
                         try
                         {
-                            lBytesReceived = data_sock.Receive(Bytes, BytesLength, 0);
+                            lBytesReceived = data_sock.Receive(buffer, BytesLength, 0);
                             if (lBytesReceived > 0)
                             {
-                                TotalBytes += lBytesReceived;
-                                if ((int)(((TotalBytes) * 100) / BytesLength) >= 100) bComplete = true;
+                               Buffer.BlockCopy(buffer, 0, Bytes, (int)TotalBytes, (int)lBytesReceived);
+                               TotalBytes += lBytesReceived;
+                               if ((int)(((TotalBytes) * 100) / BytesLength) >= 100) bComplete = true;
                             }
                             else
                             {
@@ -1378,7 +1512,7 @@ namespace PS3MAPI_NCAPI
                     throw new Exception("PS3MAPI not connected!");
                 }
             }
-            internal static void Memory_Set(uint Pid, uint Address, byte[] Bytes)
+            internal static void Memory_Set(uint Pid, ulong Address, byte[] Bytes)
             {
                 if (IsConnected)
                 {
@@ -1388,7 +1522,7 @@ namespace PS3MAPI_NCAPI
                     long lBytesSended = 0;
                     bool bComplete = false;
                     OpenDataSocket();
-                    SendCommand("MEMORY SET " + string.Format("{0}", Pid) + " " + string.Format("{0}", Address));
+                    SendCommand("MEMORY SET " + string.Format("{0}", Pid) + " " + string.Format("{0:X16}", Address));
                     switch (eResponseCode)
                     {
                         case PS3MAPI_ResponseCode.DataConnectionAlreadyOpen:
@@ -1402,7 +1536,9 @@ namespace PS3MAPI_NCAPI
                     {
                         try
                         {
-                            lBytesSended = data_sock.Send(Bytes, BytesLength, 0);
+                            byte[] buffer = new byte[BytesLength - (int)TotalBytes];
+                            Buffer.BlockCopy(Bytes, (int)lBytesSended, buffer, 0, (BytesLength - (int)TotalBytes));
+                            lBytesSended = data_sock.Send(buffer, (Bytes.Length - (int)TotalBytes), 0);
                             bComplete = false;
                             if (lBytesSended > 0)
                             {
@@ -1447,7 +1583,7 @@ namespace PS3MAPI_NCAPI
             {
                 if (IsConnected)
                 {
-                    SendCommand("MODULE GETALLPRXID " + pid.ToString());
+                    SendCommand("MODULE GETALLPRXID " + string.Format("{0}", pid));
                     switch (eResponseCode)
                     {
                         case PS3MAPI_ResponseCode.RequestSuccessful:
@@ -1474,7 +1610,7 @@ namespace PS3MAPI_NCAPI
             {
                 if (IsConnected)
                 {
-                    SendCommand("MODULE GETNAME " + pid.ToString() + " " + prxid.ToString());
+                    SendCommand("MODULE GETNAME " + string.Format("{0}", pid) + " " + prxid.ToString());
                     switch (eResponseCode)
                     {
                         case PS3MAPI_ResponseCode.RequestSuccessful:
@@ -1495,7 +1631,7 @@ namespace PS3MAPI_NCAPI
             {
                 if (IsConnected)
                 {
-                    SendCommand("MODULE GETFILENAME " + pid.ToString() + " " + prxid.ToString());
+                    SendCommand("MODULE GETFILENAME " + string.Format("{0}", pid) + " " + prxid.ToString());
                     switch (eResponseCode)
                     {
                         case PS3MAPI_ResponseCode.RequestSuccessful:
@@ -1516,7 +1652,7 @@ namespace PS3MAPI_NCAPI
             {
                 if (IsConnected)
                 {
-                    SendCommand("MODULE LOAD " + pid.ToString() + " " + path);
+                    SendCommand("MODULE LOAD " + string.Format("{0}", pid) + " " + path);
                     switch (eResponseCode)
                     {
                         case PS3MAPI_ResponseCode.RequestSuccessful:
@@ -1536,7 +1672,72 @@ namespace PS3MAPI_NCAPI
             {
                 if (IsConnected)
                 {
-                    SendCommand("MODULE UNLOAD " + pid.ToString() + " " + prx_id.ToString());
+                    SendCommand("MODULE UNLOAD " + string.Format("{0}", pid) + " " + prx_id.ToString());
+                    switch (eResponseCode)
+                    {
+                        case PS3MAPI_ResponseCode.RequestSuccessful:
+                        case PS3MAPI_ResponseCode.CommandOK:
+                            break;
+                        default:
+                            Fail();
+                            break;
+                    }
+                }
+                else
+                {
+                    throw new Exception("PS3MAPI not connected!");
+                }
+            }
+			//VSH PLUGINS (MODULES)-------------------------------------------------------------------
+            internal static void VSHPlugins_GetInfoBySlot(uint slot, out string name, out string path)
+            {
+                name = ""; path = "";
+                if (IsConnected)
+                {
+                    SendCommand("MODULE GETVSHPLUGINFO " + string.Format("{0}", slot));
+                    switch (eResponseCode)
+                    {
+                        case PS3MAPI_ResponseCode.RequestSuccessful:
+                        case PS3MAPI_ResponseCode.CommandOK:
+                            break;
+                        default:
+                            Fail();
+                            break;
+                    }
+                    string[] tmp = sResponse.Split(new char[] { '|' });
+                    name = tmp[0];
+                    path = tmp[1];
+                }
+                else
+                {
+                    throw new Exception("PS3MAPI not connected!");  
+                }
+            }
+            internal static void VSHPlugins_Load(uint slot, string path)
+            {
+                if (IsConnected)
+                {
+                    SendCommand("MODULE LOADVSHPLUG " + string.Format("{0}", slot) + " " + path);
+                    switch (eResponseCode)
+                    {
+                        case PS3MAPI_ResponseCode.RequestSuccessful:
+                        case PS3MAPI_ResponseCode.CommandOK:
+                            break;
+                        default:
+                            Fail();
+                            break;
+                    }
+                }
+                else
+                {
+                    throw new Exception("PS3MAPI not connected!");
+                }
+            }
+            internal static void VSHPlugins_Unload(uint slot)
+            {
+                if (IsConnected)
+                {
+                    SendCommand("MODULE UNLOADVSHPLUGS " + string.Format("{0}", slot));
                     switch (eResponseCode)
                     {
                         case PS3MAPI_ResponseCode.RequestSuccessful:

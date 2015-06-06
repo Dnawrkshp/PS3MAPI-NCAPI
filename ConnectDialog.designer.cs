@@ -78,6 +78,7 @@
             // 
             // txtPort
             // 
+            this.txtPort.Enabled = false;
             this.txtPort.Location = new System.Drawing.Point(223, 23);
             this.txtPort.MaxLength = 5;
             this.txtPort.Name = "txtPort";
